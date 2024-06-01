@@ -14,15 +14,12 @@ def generate_synthetic_graph(num_nodes, num_edges, num_timestamps):
     for _ in range(num_edges):
         u = random.randint(0, num_nodes - 1)
         v = random.randint(0, num_nodes - 1)
-        if u != v and not G.has_edge(u, v):
+        if u!= v and not G.has_edge(u, v):
             length = random.uniform(1, 10)  # Random length between 1 and 10
             traffic_densities = [random.uniform(0.1, 5.0) for _ in range(num_timestamps)]  # Varying densities
             G.add_edge(u, v, length=length, traffic_densities=traffic_densities)
 
     return G
-
-def export_to_gexf(G, filename):
-    nx.write_gexf(G, filename)
 
 def visualize_graph(G, num_nodes_to_show=30):
     subgraph_nodes = list(G.nodes)[:num_nodes_to_show]
@@ -45,7 +42,8 @@ def visualize_graph(G, num_nodes_to_show=30):
     nx.draw_networkx_edge_labels(subgraph, pos, edge_labels=edge_labels, font_size=5)
 
     plt.title(f"Visualization of a Subgraph with {num_nodes_to_show} Nodes (Timestamp: {random.randint(1, num_timestamps)})")
-    plt.show()
+    plt.axis('off')  # Turn off axis
+    plt.show(block=True)  # Block until the plot is closed
 
 # Parameters for the smaller graph for visualization
 small_num_nodes = 10
@@ -57,11 +55,5 @@ small_G = generate_synthetic_graph(small_num_nodes, small_num_edges, num_timesta
 
 # Visualize the smaller graph
 visualize_graph(small_G, num_nodes_to_show=10)
-
-
-
-
-
-
-
-
+plt.ioff()  # Turn off interactive mode
+plt.show()  # Show the plot
