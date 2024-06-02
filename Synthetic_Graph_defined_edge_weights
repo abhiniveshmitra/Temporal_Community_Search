@@ -1,0 +1,94 @@
+import networkx as nx
+import random
+import scipy.sparse as sp
+import time
+import numpy as np
+
+def generate_synthetic_large_graph(num_nodes, num_edges, num_timestamps):
+    G = nx.Graph()
+
+    # Add nodes with fixed weights
+    for i in range(num_nodes):
+        G.add_node(i, weight=round(random.uniform(0.5, 2.0), 2))
+        if i % 10000 == 0:
+            print(f"Added {i} nodes...")
+
+    # Add edges with fixed base_weights and time-varying traffic densities
+    for i in range(num_edges):
+        u = random.randint(0, num_nodes - 1)
+        v = random.randint(0, num_nodes - 1)
+        if u!= v and not G.has_edge(u, v):
+            base_weight = round(random.uniform(1, 10), 2)  # Base weight between 1 and 10
+            G.add_edge(u, v, base_weight=base_weight, length=round(random.uniform(1, 10), 2))  # Fixed length between 1 and 10
+        if G.degree(u) > 4:
+            G.remove_edge(u, v)
+        if G.degree(v) > 4:
+            G.remove_edge(u, v)
+        if i % 10000 == 0:
+            print(f"Added {i} edges...")
+
+    return G
+
+def assign_time_varying_weights(G, num_timestamps):
+    """
+    Assign time-varying weights to the edges of the graph G.
+
+    The weights are simulated to resemble real-world traffic patterns,
+    with peak hours during the day and reduced traffic at night.
+
+    Parameters:
+    G (networkx.Graph): The graph to assign time-varying weights to.
+    num_timestamps (int): The number of timestamps (e.g., 24 for hourly data).
+
+    Returns:
+    None
+    """
+    for u, v in G.edges():
+        base_weight = G[u][v].get('base_weight', 1.0)  # default base weight is 1.0
+
+        # Simulate a daily traffic pattern with peak hours for this edgeSynthetic
+        traffic_pattern = np.zeros(num_timestamps)
+        for j in range(num_timestamps):
+            if j < 7:  # Late night/early morning hours (12 am - 7 am)
+                traffic_pattern[j] = 0.5
+            elif j < 9:  # Morning hours (7 am - 9 am)
+                traffic_pattern[j] = 0.5 + (j - 6) * 0.1
+            elif j < 16:  # Daytime hours (9 am - 4 pm)
+                traffic_pattern[j] = 1.0
+            elif j < 18:  # Evening hours (4 pm - 6 pm)
+                traffic_pattern[j] = 1.0 + (j - 15) * 0.1
+            else:  # Late evening hours (6 pm - 12 am)
+                traffic_pattern[j] = 0.5 + (j - 17) * -0.1
+
+        # Apply the base weight to the traffic pattern
+        traffic_pattern = traffic_pattern * base_weight
+
+        # Ensure traffic densities are between 0 and 10
+        traffic_pattern = np.clip(traffic_pattern, 0, 10)
+
+        # Assign time-varying weights to the edge
+        G[u][v]['traffic_densities'] = {f"t{j}": round(traffic_pattern[j], 2) for j in range(num_timestamps)}
+
+    return G
+
+# Parameters for the large-scale graph
+large_num_nodes = 10**5
+large_num_edges = int(2.5 * large_num_nodes)  # Convert to integer
+num_timestamps = 24  # Traffic densities for 24 hours
+
+# Generate the large-scale graph
+start_time = time.time()
+large_G = generate_synthetic_large_graph(large_num_nodes, large_num_edges, num_timestamps)
+print(f"Graph generation took {time.time() - start_time:.2f} seconds")
+
+# Assign time-varying weights to the edges
+assign_time_varying_weights(large_G, num_timestamps)
+
+# Print traffic densities for the first 100 edges
+for i, (u, v) in enumerate(large_G.edges()):
+    if i >= 100:
+        break
+    print(f"Edge ({u}, {v}):")
+    for j in range(num_timestamps):
+        print(f"  t{j}: {large_G[u][v]['traffic_densities'][f't{j}']}")
+    print()
