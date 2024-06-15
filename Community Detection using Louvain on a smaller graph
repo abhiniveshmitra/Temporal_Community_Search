@@ -2,6 +2,7 @@ import networkx as nx
 import random
 import matplotlib.pyplot as plt
 import math
+import pandas as pd
 
 def generate_synthetic_large_graph(num_nodes, num_edges, num_timestamps):
     G = nx.Graph()
@@ -38,41 +39,26 @@ def generate_synthetic_large_graph(num_nodes, num_edges, num_timestamps):
 
     return G
 
-G = generate_synthetic_large_graph(50, 300, 10)
+G = generate_synthetic_large_graph(55, 300, 24)
 
-def community_detection_by_edge_length(G, weight_attribute='length'):
-    # Create a copy of the graph to avoid modifying the original graph
-    G_copy = G.copy()
-
-    # Normalize edge weights to ensure they are between 0 and 1
-    max_weight = max(G_copy.edges(data=True), key=lambda x: x[2][weight_attribute])[2][weight_attribute]
-    for u, v, d in G_copy.edges(data=True):
-        d[weight_attribute] /= max_weight
-
-    # Perform community detection using the Louvain algorithm
-    communities = nx.algorithms.community.louvain_communities(G_copy, weight=weight_attribute)
-
-    # Convert the communities to a list of node-community assignments
-    community_assignments = []
-    for community in communities:
-        for node in community:
-            community_assignments.append(list(community).index(node))
-
-    return community_assignments
+def community_detection_by_edge_weight(G, weight_attribute='base_weight'):
+    # Perform community detection using the Louvain algorithm with edge weights
+    partition = nx.algorithms.community.louvain_communities(G, weight=weight_attribute)
+    community_assignments = [(node, community_id) for community_id, nodes in enumerate(partition) for node in nodes]
+    community_df = pd.DataFrame(community_assignments, columns=['node', 'community'])
+    return community_df
 
 def visualize_communities(G, communities):
-    # Assign a random color to each community
-    colors = [random.randint(0, 255) for _ in set(communities)]
-
-    # Create a list of node colors
-    node_colors = [colors[community] for community in communities]
-
-    # Draw the graph with node colors
+    colors = [random.randint(0, 255) for _ in set(communities['community'])]
+    node_colors = [colors[community] for community in communities['community']]
     nx.draw(G, node_color=node_colors, cmap=plt.cm.rainbow, with_labels=True)
     plt.show(block=True)
 
-# Perform community detection on the graph
-communities = community_detection_by_edge_length(G)
+# Perform community detection by edge weight
+community_df = community_detection_by_edge_weight(G, weight_attribute='base_weight')
+
+# Print the community assignments for the first 100 nodes
+print(community_df.loc[community_df['node'] < 100])
 
 # Visualize the communities
-visualize_communities(G, communities)
+visualize_communities(G, community_df)
