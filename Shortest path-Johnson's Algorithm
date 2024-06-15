@@ -1,0 +1,85 @@
+import numpy as np
+import random
+import networkx as nx
+import time
+start_time = time.time()
+def generate_synthetic_large_graph(num_nodes, num_edges, num_timestamps):
+    G = nx.Graph()
+
+    # Add nodes with fixed weights
+    for i in range(num_nodes):
+        G.add_node(i, weight=round(random.uniform(0.5, 2.0), 2))  # Node weights vary between 0.5 and 2.0
+
+    # Add edges with base weights based on connected node weights
+    for i in range(num_edges):
+        u = random.randint(0, num_nodes - 1)
+        v = random.randint(0, num_nodes - 1)
+        if u!= v and not G.has_edge(u, v):
+            node_u_weight = G.nodes[u]['weight']
+            node_v_weight = G.nodes[v]['weight']
+            # Use the weighted geometric mean as the base weight
+            base_weight = round(node_u_weight * node_v_weight, 2)
+            G.add_edge(u, v, base_weight=base_weight, length=round(random.uniform(1, 10), 2))
+        if G.degree(u) > 4:
+            G.remove_edge(u, v)
+        if G.degree(v) > 4:
+            G.remove_edge(u, v)
+
+    # Vary edge weights according to timestamp
+    for t in range(num_timestamps):
+        for u, v in G.edges():
+            base_weight = G[u][v]['base_weight']
+            weight_variation = round(random.uniform(0.8, 1.2), 2)
+            G[u][v][t] = round(base_weight * weight_variation, 2)
+
+    return G
+
+def johnson(graph, timestamp):
+    num_nodes = len(graph)
+    dist_matrix = np.full((num_nodes, num_nodes), np.inf)
+
+    # Add a new node with zero-weight edges to all other nodes
+    h = num_nodes
+    graph.add_node(h)
+    for u in range(num_nodes):
+        graph.add_edge(h, u, weight=0)
+
+    # Compute shortest distances using Johnson's algorithm
+    bellman_ford_tree = nx.bellman_ford_tree(graph, h)
+    for i in range(num_nodes):
+        for j in range(num_nodes):
+            if i!= j:
+                dist_matrix[i, j] = graph[i][j]['weight'] + bellman_ford_tree[i][j]['weight'] - bellman_ford_tree[h][i]['weight'] - bellman_ford_tree[h][j]['weight']
+
+    return dist_matrix
+
+G = generate_synthetic_large_graph(100, 500, 24)
+
+# Create a subgraph with edge weights at timestamp 12 (12 to 1 pm)
+G_timestamp_12 = G.copy()
+for u, v in G_timestamp_12.edges():
+    G_timestamp_12[u][v]['weight'] = G[u][v][12]
+
+# Compute shortest distances and paths using networkx
+shortest_paths = {}
+min_dist_dict = {}
+
+for u in G_timestamp_12:
+    for v in G_timestamp_12:
+        if u!= v:
+            try:
+                shortest_paths[(u, v)] = list(nx.shortest_path(G_timestamp_12, u, v, weight='weight'))
+                min_dist_dict[(u, v)] = round(nx.shortest_path_length(G_timestamp_12, u, v, weight='weight'), 2)
+            except nx.NetworkXNoPath:
+                min_dist_dict[(u, v)] = float('inf')  # or some other default value
+
+
+end_time = time.time()
+'''
+# Print a few entries of the min_dist_dict and shortest_path_dict
+print("Minimum distances and shortest paths between node pairs at timestamp 12 (12 to 1 pm):")
+for (u, v), dist in list(min_dist_dict.items())[:1000]:
+    path = shortest_paths.get((u, v), [])
+    print(f"({u}, {v}): Distance = {dist}, Path = {path}")'''
+print(f"Johnson's algorithm completion time: {end_time - start_time} seconds")
+
